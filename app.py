@@ -10,7 +10,7 @@ CORS(app)  # Yeh React ko block hone se bachayega (No CORS Error)
 # Gemini Client Setup (Apni Gemini Key yahan dalo)
 client = genai.Client(api_key="YAHAN APNI API KEY DAALO")
 
-@app.route('/api/recommend', methods=['POST'])
+@app.route('/api', methods=['POST'])
 def recommend():
     try:
         data = request.json
