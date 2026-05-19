@@ -29,6 +29,8 @@
     <script type="text/babel">
         const { useState } = React;
 
+        const GEMINI_API_KEY = "AIzaSyChx_X9KD2y3gJqukwi4vR8Gv5AUZoaoB8";
+
         const PRODUCTS = [
             { id: 1, name: "Samsung Galaxy A54", category: "Phone", price: 449, image: "📱" },
             { id: 2, name: "iPhone 15", category: "Phone", price: 799, image: "📱" },
@@ -42,42 +44,72 @@
             const [query, setQuery] = useState("");
             const [messages, setMessages] = useState([]);
             const [recIds, setRecIds] = useState([]);
+            const [loading, setLoading] = useState(false);
 
             const handleSearch = async () => {
-                if (!query.trim()) return;
-                setMessages(prev => [...prev, { role: "user", text: query }]);
-                
+                if (!query.trim() || loading) return;
+                const userQuery = query;
+                setMessages(prev => [...prev, { role: "user", text: userQuery }]);
+                setQuery("");
+                setLoading(true);
+
                 try {
                     const catalog = PRODUCTS.map(p => `ID:${p.id} - ${p.name} ($${p.price})`).join("\n");
-                    const systemPrompt = `Catalog:\n${catalog}\nReturn ONLY JSON: {"recommended_ids": [1], "explanation": "reason"}`;
+                    const prompt = `You are a product recommendation assistant.
+Catalog:
+${catalog}
 
-                    const res = await fetch("/api", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ message: query, systemPrompt: systemPrompt })
-                    });
-                    
+User Request: ${userQuery}
+
+Reply ONLY with valid JSON, no extra text:
+{"recommended_ids": [1, 2], "explanation": "reason here"}`;
+
+                    const res = await fetch(
+                        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+                        {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                contents: [{ parts: [{ text: prompt }] }],
+                                generationConfig: { responseMimeType: "application/json" }
+                            })
+                        }
+                    );
+
                     const data = await res.json();
-                    const parsed = JSON.parse(data.content || "{}");
-                    
+                    const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+                    const parsed = JSON.parse(raw);
+
                     setRecIds(parsed.recommended_ids || []);
-                    setMessages(prev => [...prev, { role: "bot", text: parsed.explanation || "Here are the best matches!" }]);
+                    setMessages(prev => [...prev, { role: "bot", text: parsed.explanation || "Yeh products best match hain!" }]);
                 } catch (e) {
-                    setMessages(prev => [...prev, { role: "bot", text: "Backend se connect nahi ho paya!" }]);
+                    setMessages(prev => [...prev, { role: "bot", text: "Kuch error aa gaya, dobara try karo." }]);
                 }
-                setQuery("");
+                setLoading(false);
             };
+
+            const handleKey = (e) => { if (e.key === "Enter") handleSearch(); };
 
             return (
                 <div className="container">
                     <div className="chat-box">
                         <h3>AI Product Assistant</h3>
                         <div className="chat-messages">
+                            {messages.length === 0 && <div className="msg bot">Kuch poochho, e.g. "phone under $500"</div>}
                             {messages.map((m, i) => <div key={i} className={`msg ${m.role}`}>{m.text}</div>)}
+                            {loading && <div className="msg bot">Soch raha hoon...</div>}
                         </div>
                         <div className="input-area">
-                            <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Ask AI (e.g. phone under $500)" />
-                            <button onClick={handleSearch}>Send</button>
+                            <input
+                                value={query}
+                                onChange={e => setQuery(e.target.value)}
+                                onKeyDown={handleKey}
+                                placeholder="Ask AI (e.g. phone under $500)"
+                                disabled={loading}
+                            />
+                            <button onClick={handleSearch} disabled={loading}>
+                                {loading ? "..." : "Send"}
+                            </button>
                         </div>
                     </div>
                     <div>
