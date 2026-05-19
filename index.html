@@ -51,7 +51,7 @@
                     const catalog = PRODUCTS.map(p => `ID:${p.id} - ${p.name} ($${p.price})`).join("\n");
                     const systemPrompt = `Catalog:\n${catalog}\nReturn ONLY JSON: {"recommended_ids": [1], "explanation": "reason"}`;
 
-                    const res = await fetch("http://localhost:5000/api/recommend", {
+                    const res = await fetch("/api", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ message: query, systemPrompt: systemPrompt })
